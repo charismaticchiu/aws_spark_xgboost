@@ -20,42 +20,34 @@ import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.sql.SparkSession
 
 import ml.dmlc.xgboost4j.scala.spark.XGBoost
-//import ml.dmlc.xgboost4j.scala.Booster
 
 object SparkWithRDD {
   def main(args: Array[String]): Unit = {
-    /*
-    if (args.length != 5) {
-      println(
-        "usage: program num_of_rounds num_workers training_path test_path model_path")
-      sys.exit(1)
-    }
-    */
-    val sparkConf = new SparkConf().setMaster("local").setAppName("XGBoost-spark-example")
-      .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
-    //sparkConf.registerKryoClasses(Array(classOf[Booster]))
+    val sparkConf = new SparkConf().setMaster("yarn").setAppName("XGBoost-spark-example")
+    
     implicit val sc = new SparkContext(sparkConf)
     
     // settings
-    val inputTrainPath = "/Users/ericchiu/spark-2.3.0-bin-hadoop2.7/sparkRDD_xgb/data/traindata.csv"//args(2)
-    val inputTestPath = "/Users/ericchiu/spark-2.3.0-bin-hadoop2.7/sparkRDD_xgb/data/testdata.csv"//args(3)
-    val outputModelPath = "/Users/ericchiu/spark-2.3.0-bin-hadoop2.7/sparkRDD_xgb/model"//args(4)
-    val outputTxtPath = "/Users/ericchiu/spark-2.3.0-bin-hadoop2.7/sparkRDD_xgb/predict"//args(4)
+    val inputTrainPath = "s3://ee451-team-project/input/creditcard.csv"
+    val outputModelPath = "s3://ee451-team-project/output/model"
+    val outputTextPath = "s3://ee451-team-project/output/time"
+
     // number of iterations
-    val numRound = 10//args(0).toInt
-    val num_workers = 1 //args(1).toInt
+    val numRound = 1000  
+    val num_workers = 4  
 
     // processing
     val trainCSV = sc.textFile(inputTrainPath).map(line =>line.split(",").map(_.trim.toDouble))
     val trainRDD = trainCSV.map(lp => MLLabeledPoint(lp.last, new MLDenseVector(lp.slice(0,lp.length-1))))
-    trainRDD.take(10).foreach(println)
+    //trainRDD.take(10).foreach(println)
     
-    val testCSV = sc.textFile(inputTestPath).map(line =>line.split(",").map(_.trim.toDouble))
-    val testSet = testCSV.map(lp => new MLDenseVector(lp.slice(0,lp.length-1)))
+    //val testCSV = sc.textFile(inputTestPath).map(line =>line.split(",").map(_.trim.toDouble))
+    //val testSet = testCSV.map(lp => new MLDenseVector(lp.slice(0,lp.length-1)))
+
     // training parameters
     val paramMap = List(
       "eta" -> 0.1f,
-      "max_depth" -> 2,
+      "max_depth" -> 30,
       "objective" -> "binary:logistic").toMap
 
     //************
@@ -64,16 +56,14 @@ object SparkWithRDD {
       useExternalMemory = true)
     val t1 = System.nanoTime()
     println(s"Elapsed time: ${t1 - t0} ns")
-    println("s")
-    println("s")
-    println("s")
+
     //************
 
-    val predict = xgboostModel.predict(testSet, missingValue = Float.NaN)
-    val result = predict.map(lp => lp.deep.mkString("\n"))
-    // save model to HDFS path
-    result.saveAsTextFile(outputTxtPath)
+    //val predict = xgboostModel.predict(testSet, missingValue = Float.NaN)
+    //val result = predict.map(lp => lp.deep.mkString("\n"))
+
+    // save model to S3 path
     xgboostModel.saveModelAsHadoopFile(outputModelPath)
-    sc.stop()
+    result.parallelize([t1 - t0]).saveAsTextFile(outputTextPath)
   }
 }
