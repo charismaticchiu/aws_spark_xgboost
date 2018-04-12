@@ -36,5 +36,6 @@ export PATH=/usr/lib/jvm/java-1.8.0-openjdk.x86_64/bin:$PATH
 
 cd ../../
 
-mkdir -p sparkRDD/src/main/scala
+git clone --recursive https://github.com/charismaticchiu/aws_spark_xgboost.git
+cd aws_spark_xgboost
 
